@@ -1,0 +1,7 @@
+eshell/history
+straight/*
+transient/history.el
+*~
+.lsp-session-v1
+my-geo-coords.el
+recentf
