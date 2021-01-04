@@ -35,8 +35,8 @@
 ;; ArchLinux & MS Windows: rustup component add rls
 ;;
 ;; markdown processor for markdown-mode (used for rendering HTML for preview and export)
-;; ArchLinux: pacman -Sy discount
-;; MS Windows: ?
+;; ArchLinux: pacman -Sy pandoc
+;; MS Windows: choco install pandoc
 ;;
 ;; Ripgrep for helm, helm-rg
 ;; ArchLinux: pacman -Sy ripgrep
@@ -44,11 +44,51 @@
 ;;
 ;; rustfmt for rust-mode
 ;; ArchLinux & MS Windows: rustup component add rustfmt
+;;
+;; gzip for building tree-sitter-langs
+;; ArchLinux: pacman -Sy gzip
+;; MS Windows: scoop install gzip
+;;
+;; curl for elfeed
+;; ArchLinux: pacman -Sy curl
+;; MS Windows: scoop install curl
+;;
+;; clojure for cider
+;; ArchLinix: pacman -Sy clojure
+;; MS Windows: scoop install leiningen
 
 ;;; Commentary:
 ;; 
 
 ;;; Code:
+
+;; straight.el bootstrapping code
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+      (bootstrap-version 5))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
+
+;; use-package - A configuration macro for simplifying your .emacs
+;; https://github.com/jwiegley/use-package
+(straight-use-package 'use-package)
+(setq straight-use-package-by-default t)
+
+;; no-littering - help keeping ~/.emacs.d clean
+;; https://github.com/emacscollective/no-littering
+;; NOTE: Load this package as early as possible in your init file.
+;; Make sure you load it at least before you change any path variables
+;; using some other method
+(use-package no-littering
+  :custom
+  (server-auth-dir (no-littering-expand-var-file-name "server/")))
 
 ;; Skip startup screen
 (setq inhibit-startup-screen t)
@@ -58,19 +98,25 @@
 
 ;; GUI settings residing in separate file
 (if (display-graphic-p)
-    (load "~/.emacs.d/gui"))
+    (load (concat user-emacs-directory "gui")))
 
 ;; MS Windows specific settings
 (if (string-equal system-type "windows-nt")
-    (load "~/.emacs.d/mswindows"))
+    (load (concat user-emacs-directory "mswindows")))
+
+;; Settings with personal data which I prefer not to share in VCS
+(load (concat user-emacs-directory "personal-prefs") t)
 
 ;; Geographical settings for calculating sunset/sunrise times which I
 ;; prefer not to share in VCS
-(load "~/.emacs.d/regional-prefs" t)
+(load (concat user-emacs-directory "regional-prefs") t)
 
 ;; save customization settings into its own file
-(setq custom-file "~/.emacs.d/customizations.el")
+(setq custom-file (concat user-emacs-directory "customizations.el"))
 (load custom-file t)
+
+;; UTF-8 language environment
+(set-language-environment "UTF-8")
 
 ;; use xsel to copy/paste in Emacs running in terminal emulator
 (unless window-system
@@ -133,9 +179,6 @@
 (setq ispell-program-name "hunspell")
 (setq ispell-dictionary "american")
 
-;; store all backup files in one dedicated directory
-(setq backup-directory-alist '(("." . "~/.emacs.d/backup")))
-
 ;; make numbered backups
 (setq version-control t)
 
@@ -154,9 +197,6 @@
 ;; human-readable info about the amount of free space for C-u C-x C-d
 (setq directory-free-space-args "-hP")
 
-;; enable "Open Recent" menu for recent files
-(recentf-mode)
-
 ;; auto-save list of recent files every 5 minutes
 (run-at-time t (* 5 60)
 	     (lambda ()
@@ -174,7 +214,10 @@
 (setq diary-number-of-entries 5)
 
 ;; Switches passed to `ls' for Dired
-(setq dired-listing-switches "-al --group-directories-first")
+;; MS Windows doesn't support ls option "--group-directories-first"
+(unless (string-equal system-type "windows-nt")
+    (setq dired-listing-switches "-al --group-directories-first"))
+
 ;; Isearch in Dired matches file names when initial point position is on a file name.
 ;; Otherwise, it searches the whole buffer
 (setq dired-isearch-filenames 'dwim)
@@ -197,6 +240,9 @@
 ;; automatically wrap long lines in comments
 (add-hook 'prog-mode-hook 'auto-fill-mode)
 
+;; visually wrap long lines in text files
+(add-hook 'text-mode-hook 'visual-line-mode)
+
 ;; show matching open-paren when close-paren is inserted
 (setq blink-matching-paren 'jump-offscreen)
 
@@ -206,41 +252,51 @@
 ;; switches for M-x man command. Use M-n and M-p to switch between man pages in different sections
 (setq Man-switches "-a")
 
-;; helps with LSP frequent freezes/stuttering
-;; See https://emacs-lsp.github.io/lsp-mode/lsp-mode.html#_frequent_freezesstuttering
-(if (< emacs-major-version 27)
-    (setq gc-cons-threshold 30000000))
+;; LSP Mode recommended performance settings
+;; See https://emacs-lsp.github.io/lsp-mode/page/performance/
+(setq gc-cons-threshold 100000000)
+(setq read-process-output-max (* 1024 1024)) ;; 1mb
 
 ;; global key bindings
-(global-set-key (kbd "C-c /") 'comment-or-uncomment-region)
+(global-set-key (kbd "C-c /") 'comment-dwim)
+;; C-z minimizes window by default, it's annoying to accidentally
+;; press it
+(global-unset-key (kbd "C-z"))
 
 ;; prevents outdated byte code files from being loaded
 (setq load-prefer-newer t)
 
-;; straight.el bootstrapping code
-(defvar bootstrap-version)
-(let ((bootstrap-file
-       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-      (bootstrap-version 5))
-  (unless (file-exists-p bootstrap-file)
-    (with-current-buffer
-        (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
-         'silent 'inhibit-cookies)
-      (goto-char (point-max))
-      (eval-print-last-sexp)))
-  (load bootstrap-file nil 'nomessage))
+;; * Packages: Built-in *
 
-;; use-package - A configuration macro for simplifying your .emacs
-;; https://github.com/jwiegley/use-package
-(straight-use-package 'use-package)
-(setq straight-use-package-by-default t)
+;; recentf - enable "Open Recent" menu for recent files
+(use-package recentf
+  :config
+  (add-to-list 'recentf-exclude no-littering-var-directory)
+  (add-to-list 'recentf-exclude no-littering-etc-directory)
+  (recentf-mode))
+
+;; tab-bar - faces customized to match Nova theme
+(use-package tab-bar
+  :custom
+  (tab-bar-close-button-show nil)
+  (tab-bar-new-button-show nil)
+  (tab-bar-select-tab-modifiers '(hyper))
+  (tab-bar-tab-hints t)
+  :custom-face
+  (tab-bar ((nil (:background "#303d44"))))
+  (tab-bar-tab ((nil (:foreground "#7fc1ca" :background "#6a7d89"))))
+  (tab-bar-tab-inactive ((nil (:foreground "#7fc1ca" :background "#303d44"))))
+  :config
+  (tab-bar-mode))
+
 
 ;; * Packages: Look & feel *
 
 ;; nova-theme - A dark, pastel Emacs color theme
 ;; https://github.com/muirmanders/emacs-nova-theme/
-(use-package nova-theme)
+(use-package nova-theme
+  :config
+  (load-theme 'nova t))
 
 ;; ace-window - Quickly switch windows in Emacs
 ;; https://github.com/abo-abo/ace-window/
@@ -262,24 +318,54 @@
 ;; delight - A dimmer switch for your lighter text (remove or change
 ;; major & minor mode strings in your mode-line)
 ;; https://elpa.gnu.org/packages/delight.html
-(use-package delight)
+(use-package delight
+  :config
+  (delight '((auto-fill-function " AF" t)
+             (eldoc-mode nil "eldoc"))))
 
+;; NOTE: Has the development of Helm stopped?
+;; See: https://www.reddit.com/r/emacs/comments/iqytf6/has_the_development_of_helm_stopped/
 ;; helm - Emacs incremental completion and selection narrowing framework
 ;; https://github.com/emacs-helm/helm
 ;; https://emacs-helm.github.io/helm/
-(use-package helm
-  :bind (("M-x" . helm-M-x)
-	 ("C-x b" . helm-buffers-list)
-	 ("C-x C-f" . helm-find-files)
-	 ("C-h a" . helm-apropos)
-	 ("M-y" . helm-show-kill-ring))
-  :init
-  (setq helm-grep-ag-command "rg --color=always --colors 'match:fg:black' --colors 'match:bg:yellow' --smart-case --no-heading --line-number %s %s %s")
-  (setq helm-grep-ag-pipe-cmd-switches '("--colors 'match:fg:black'" "--colors 'match:bg:yellow'")))
+;; (use-package helm
+;;   :bind (("M-x" . helm-M-x)
+;; 	 ("C-x b" . helm-buffers-list)
+;; 	 ("C-x C-f" . helm-find-files)
+;; 	 ("C-h a" . helm-apropos)
+;; 	 ("M-y" . helm-show-kill-ring))
+;;   :init
+;;   (setq helm-grep-ag-command "rg --color=always --colors 'match:fg:black' --colors 'match:bg:yellow' --smart-case --no-heading --line-number %s %s %s")
+;;   (setq helm-grep-ag-pipe-cmd-switches '("--colors 'match:fg:black'" "--colors 'match:bg:yellow'")))
+
+;; counsel - Various completion functions using Ivy
+;; https://github.com/abo-abo/swiper/
+;; https://oremacs.com/swiper/
+(use-package counsel
+  :delight
+  (ivy-mode)
+  (counsel-mode)
+  :bind
+  ("C-s" . swiper-isearch)
+  ("C-r" . swiper-isearch-backward)
+  ("C-x b" . counsel-ibuffer)
+  :custom
+  (ivy-count-format "(%d/%d) ")
+  :config
+  (ivy-mode)
+  (counsel-mode))
 
 ;; hercules - An auto-magical, which-key-based hydra banisher
 ;; https://gitlab.com/jjzmajic/hercules.el/
 (use-package hercules)
+
+;; ivy-prescient - prescient.el (Better sorting and filtering) + Ivy
+;; https://github.com/raxod502/prescient.el/
+(use-package ivy-prescient
+  :after counsel
+  :config
+  (ivy-prescient-mode)
+  (prescient-persist-mode))
 
 ;; Russian holidays for Emacs builtin calendar
 ;; https://github.com/grafov/russian-holidays
@@ -291,6 +377,9 @@
 ;; which-key - Emacs package that displays available keybindings in popup
 ;; https://github.com/justbur/emacs-which-key
 (use-package which-key
+  :delight
+  :custom
+  (which-key-idle-delay 0.75)
   :config (which-key-mode))
 
 
@@ -298,28 +387,73 @@
 
 ;; mardkown-mode - Major mode for Markdown-formatted text
 ;; https://github.com/jrblevin/markdown-mode/
+;; https://jblevins.org/projects/markdown-mode/
+;; https://leanpub.com/markdown-mode/read
 (use-package markdown-mode)
 
 ;; Outline-based notes management and organizer
 ;; https://orgmode.org
-(use-package org)
+(use-package org
+  :bind
+  ("H-o a" . org-agenda)
+  ("H-o c" . org-capture)
+  ("H-o l" . org-store-link)
+  :hook
+  (org-mode . (lambda () (electric-indent-local-mode -1)))
+  :custom
+  (org-directory "~/essential/orgmode/")
+  (org-default-notes-file (concat org-directory "org-capture.org"))
+  (org-capture-templates
+   '(("t" "TODO" entry (file+headline "todo.org" "Tasks")
+      "* TODO %?")
+     ("w" "TV Show Watchlist" entry (file+headline "watchlist.org" "TV Shows")
+      "* %^{Name} (%^{Year|2020})
+Genre: %^{Genre|Drama|Crime|Comedy|Sci-Fi|Horror|Thriller|Documentary|Animation}
+TV Network: %^{TV Network|Netflix|HBO|Amazon|Apple TV+|Hulu|Syfy}
+Trailer: %^{Trailer URL}%?")
+     ("W" "Movie Watchlist" entry (file+headline "watchlist.org" "Movies")
+      "* %^{Name} (%^{Year|2020})
+Genre: %^{Genre|Drama|Crime|Comedy|Sci-Fi|Horror|Thriller|Documentary|Animation}
+Director: %^{Director}
+IMDB URL: %^{IMDB URL}%?")))
+  (org-agenda-include-diary t)
+  (org-special-ctrl-a/e t))
 
 ;; typo - Emacs mode for typographical editing
 ;; https://github.com/jorgenschaefer/typoel
 (use-package typo
-  :config (setq-default typo-language "Russian"))
+  :custom
+  (typo-language "Russian"))
 
+
+;; * Packages: Multimedia *
+
+;; elfeed - an Emacs Atom/RSS feed reader
+;; https://github.com/skeeto/elfeed/
+(use-package elfeed
+  :config
+  (defun my/eww-browse-elfeed-entry ()
+    (interactive)
+    (let ((link (elfeed-entry-link elfeed-show-entry)))
+          (when link
+            (eww-browse-url link))))
+  :bind (:map elfeed-show-mode-map
+              ("e" . my/eww-browse-elfeed-entry)))
+
+;; elfeed-org - Configure elfeed with one or more org-mode files
+;; https://github.com/remyhonig/elfeed-org/
+(use-package elfeed-org
+  :custom
+  (rmh-elfeed-org-files (list (concat org-directory "elfeed.org")))
+  :config
+  (elfeed-org))
 
 ;; * Packages: Programming (general) *
 
 ;; company - Modular text completion framework
 ;; https://github.com/company-mode/company-mode/
-(use-package company)
-
-;; company-lsp - Company completion backend for lsp-mode
-;; Company completion backend for lsp-mode
-(use-package company-lsp
-  :commands company-lsp)
+(use-package company
+  :delight)
 
 ;; dap-mode - Debug Adapter Protocol mode
 ;; https://github.com/emacs-lsp/dap-mode
@@ -332,42 +466,54 @@
   :bind (("C-c [" . dumb-jump-back)
          ("C-c ]" . dumb-jump-go))
   :config
-  (setq dumb-jump-prefer-searcher 'rg)
-  (setq dumb-jump-selector 'helm))
+  (setq dumb-jump-prefer-searcher 'rg))
 
 ;; editorconfig - EditorConfig plugin for emacs
 ;; https://github.com/editorconfig/editorconfig-emacs
 (use-package editorconfig
-  :config (editorconfig-mode 1)
-  :delight (editorconfig-mode " EC"))
+  :delight
+  :config (editorconfig-mode 1))
 
 ;; flycheck - On the fly syntax checking for GNU Emacs
 ;; https://github.com/flycheck/flycheck
 ;; http://www.flycheck.org
 (use-package flycheck
-  :config (global-flycheck-mode))
+  :bind
+  ("H-f l" . flycheck-list-errors)
+  ("H-f [" . flycheck-previous-error)
+  ("H-f ]" . flycheck-next-error)
+  :config
+  (global-flycheck-mode))
 
+;; NOTE: Has the development of Helm stopped?
+;; See: https://www.reddit.com/r/emacs/comments/iqytf6/has_the_development_of_helm_stopped/
 ;; helm-projectile - Helm integration for Projectile
 ;; https://github.com/bbatsov/helm-projectile/
-(use-package helm-projectile
-  :config (helm-projectile-toggle 1))
+;; (use-package helm-projectile
+;;   :config (helm-projectile-toggle 1))
 
+;; NOTE: Has the development of Helm stopped?
+;; See: https://www.reddit.com/r/emacs/comments/iqytf6/has_the_development_of_helm_stopped/
 ;; helm-rg - a helm interface to ripgrep
 ;; https://github.com/cosmicexplorer/helm-rg/
-(use-package helm-rg)
+;; (use-package helm-rg)
 
 ;; lsp-mode - Emacs client/library for the Language Server Protocol
 ;; https://github.com/emacs-lsp/lsp-mode
-;; https://emacs-lsp.github.io/lsp-mode/lsp-mode.html
+;; https://emacs-lsp.github.io/lsp-mode/
 (use-package lsp-mode
-  :hook ((css-mode . lsp-deferred)
+  :after which-key
+  :init
+  (setq lsp-keymap-prefix "H-c")
+  :hook ((c++-mode . lsp-deferred)
+         (css-mode . lsp-deferred)
          (js-mode . lsp-deferred)
          (mhtml-mode . lsp-deferred)
-         (rust-mode . lsp-deferred))
+         (rust-mode . lsp-deferred)
+         (lsp-mode . lsp-enable-which-key-integration))
   :config
-  (setq lsp-prefer-flymake nil)
-  (add-to-list 'lsp-disabled-clients '(mhtml-mode . angular-ls))
-  :commands lsp)
+  (add-to-list 'lsp-disabled-clients '(mhtml-mode . angular-ls)))
+
 
 ;; lsp-ui - flycheck integration and higher level UI modules for lsp-mode
 ;; https://github.com/emacs-lsp/lsp-ui
@@ -382,12 +528,26 @@
 
 ;; Projectile - Manage and navigate projects in Emacs easily
 ;; https://github.com/bbatsov/projectile/
-;; https://www.projectile.mx/en/latest/
+;; https://docs.projectile.mx/
 (use-package projectile
   :bind-keymap
-  ("C-c p" . projectile-command-map)
+  ("H-p" . projectile-command-map)
+  :custom
+  (projectile-project-search-path '("~/projects/"))
+  (projectile-completion-system 'ivy)
+  (projectile-mode-line-prefix " Prj")
   :config
   (projectile-mode +1))
+
+;; tree-sitter - Incremental parsing system
+;; https://github.com/ubolonton/emacs-tree-sitter/
+;; https://ubolonton.github.io/emacs-tree-sitter/
+;; https://tree-sitter.github.io/tree-sitter/
+(use-package tree-sitter
+  :delight " 🌳")
+
+;; tree-sitter-langs - Grammar bundle for tree-sitter
+(use-package tree-sitter-langs)
 
 ;; yasnippet - Yet another snippet extension for Emacs
 ;; https://github.com/joaotavora/yasnippet/
@@ -396,8 +556,10 @@
 
 ;; zeal-at-point - Search the word at point with Zeal
 ;; https://github.com/jinzhu/zeal-at-point/
+;; NOTE: currently doesn't work in MS Windows
+;; See https://github.com/zealdocs/zeal/issues/1113
 (use-package zeal-at-point
-  :bind ("\C-cd" . zeal-at-point))
+  :bind ("C-c d" . zeal-at-point))
 
 ;; * Packages: Programming (Frontend web development) *
 
@@ -423,6 +585,25 @@
 ;; https://github.com/joshwnj/json-mode/
 (use-package json-mode)
 
+;; * Packages: Programming (Clojure) *
+
+;; cider - Clojure Interactive Development Environment that Rocks
+;; https://github.com/clojure-emacs/cider/
+;; https://docs.cider.mx/
+(use-package cider)
+
+;; paredit - minor mode for editing parentheses
+(use-package paredit
+  :hook (clojure-mode . paredit-mode))
+
+;; rainbow-delimiters - Highlight brackets according to their depth
+;; https://github.com/Fanael/rainbow-delimiters/
+(use-package rainbow-delimiters
+  :hook ((clojure-mode
+          cider-repl-mode
+          emacs-lisp-mode
+          lisp-interaction-mode) . rainbow-delimiters-mode))
+
 ;; * Packages: Programming (Rust) *
 
 ;; rust-mode - Emacs configuration for Rust
@@ -431,7 +612,8 @@
 ;; https://github.com/rust-lang-nursery/rustfmt
 (use-package rust-mode
   :mode "\\.rs\\'"
-  :config (setq rust-format-on-save t))
+  :custom
+  (rust-format-on-save t))
 
 (provide 'init)
 
