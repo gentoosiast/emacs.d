@@ -2,6 +2,9 @@
 (tool-bar-mode -1)
 (scroll-bar-mode -1)
 
+;; Don't use modal GUI dialog boxes as prompts
+(setq use-dialog-box nil)
+
 (cond
  ((string-equal system-name "LAPTOP-FPI35DV6")
   (setq my/font-height 100))
@@ -21,7 +24,7 @@
 ;; ArchLinux: pacman -Sy ttf-fira-code
 ;; MS Windows: choco install firacode
 (set-face-attribute 'fixed-pitch nil :family "Fira Code" :height my/font-height)
-;; ArchLinux: https://quoteunquoteapps.com/courierprime/xf
+;; ArchLinux: http://dimkanovikov.pro/courierprime/
 ;; MS Windows: http://dimkanovikov.pro/courierprime/
 (set-face-attribute 'fixed-pitch-serif nil :family "Courier Prime" :height my/font-height)
 ;; TODO: variable-pitch - variable-width font
