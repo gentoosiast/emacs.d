@@ -8,8 +8,7 @@
 (cond
  ((string-equal (system-name) "LAPTOP-FPI35DV6")
   (setq my/font-height 100))
- ((string-equal (system-name) "DESKTOP")
-  (setq my/font-height 110)))
+ (t (setq my/font-height 110)))
 
 ;; Set nice default font
 ;; ArchLinux: pacman -Sy ttf-hack
