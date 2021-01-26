@@ -35,7 +35,7 @@
 ;; Show directories before files in Dired
 (setq ls-lisp-dirs-first t)
 
-(setq dired-listing-switches "-l")
+(setq dired-listing-switches "-ahl")
 
 ;; Coding system used for system messages, for decoding keyboard input
 ;; on X Window system, and for encoding standard output and error

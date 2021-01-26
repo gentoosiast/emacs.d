@@ -67,6 +67,14 @@
 ;; mpv for pomodoro
 ;; ArchLinux: pacman -Sy mpv
 ;; MS Windows: scoop install mpv
+;;
+;; sqlite3 for org-roam
+;; ArchLinux: pacman -Sy sqlite
+;; MS Windows: scoop install sqlite
+;;
+;; graphviz for org-roam
+;; ArchLinux: pacman -Sy graphviz
+;; MS Windows: scoop install graphviz
 
 ;;; Commentary:
 ;;
@@ -113,7 +121,7 @@
 (load (concat user-emacs-directory "gui"))
 
 ;; MS Windows specific settings
-(if (string-equal system-type "windows-nt")
+(if (eq system-type 'windows-nt)
     (load (concat user-emacs-directory "mswindows")))
 
 ;; Settings with personal data which I prefer not to share in VCS
@@ -191,18 +199,11 @@
 ;; count columns in the mode line starting from 1
 (setq column-number-indicator-zero-based nil)
 
-;; 24-hour format for time display in the mode line
-(setq display-time-24hr-format t)
-
 ;; use visible bell instead of annoying beeps
 (setq visible-bell t)
 
 ;; display raw bytes in hex format
 (setq display-raw-bytes-as-hex t)
-
-;; spellchecker settings
-(setq ispell-program-name "hunspell")
-(setq ispell-dictionary "american")
 
 ;; make numbered backups
 (setq version-control t)
@@ -220,37 +221,20 @@
 (add-hook 'before-save-hook 'time-stamp)
 
 ;; switches to pass to `ls' for verbose listing
-(setq list-directory-verbose-switches "-hl")
+(setq list-directory-verbose-switches "-ahl")
 
 ;; By default auto saves appear in the current directory of a visited file
 (setq auto-save-file-name-transforms
       `((".*" ,(no-littering-expand-var-file-name "auto-save/") t)))
 
-;; auto-save list of recent files every so often
-(run-at-time t (* 15 60)
-	     (lambda ()
-	       (let ((inhibit-message t))
-		 (recentf-save-list))))
-
 ;; input method activated automatically by C-\
 (setq default-input-method "russian-computer")
 
-;; calendar
-(setq calendar-mark-diary-entries-flag t)
-
-;; diary
-(setq diary-file "~/essential/diary")
-(setq diary-number-of-entries 5)
-
 ;; Switches passed to `ls' for Dired
 ;; MS Windows doesn't support ls option "--group-directories-first"
-(unless (string-equal system-type "windows-nt")
-    (setq dired-listing-switches "-al --group-directories-first"))
+(unless (eq system-type 'windows-nt)
+    (setq dired-listing-switches "-ahl --group-directories-first"))
 
-;; Isearch in Dired matches file names when initial point position is
-;; on a file name
-;; Otherwise, it searches the whole buffer
-(setq dired-isearch-filenames 'dwim)
 ;; external image viewer in image-dired mode
 (setq image-dired-external-viewer "feh")
 
@@ -282,10 +266,6 @@
 ;; highlight matching parens
 (show-paren-mode 1)
 
-;; switches for M-x man command. Use M-n and M-p to switch between man
-;; pages in different sections
-(setq Man-switches "-a")
-
 ;; LSP Mode recommended performance settings
 ;; See https://emacs-lsp.github.io/lsp-mode/page/performance/
 (setq gc-cons-threshold 100000000)
@@ -308,11 +288,53 @@
 
 ;; * Packages: Built-in *
 
+;; calendar
+(use-package calendar
+  :custom
+  (calendar-mark-diary-entries-flag t)
+  (diary-file "~/essential/diary"))
+
+;; diary-lib - diary functions
+(use-package diary-lib
+  :custom
+  (diary-number-of-entries 5))
+
+;; dired - integrated file browser
+(use-package dired
+  :straight nil
+  :bind (:map dired-mode-map
+              ("M-RET" . browse-url-of-dired-file)))
+
+;; dired-aux - less commonly used parts of dired
+(use-package dired-aux
+  :straight nil
+  :custom
+  ;; dired-isearch-filenames doesn't work with 'ctrlf' package
+  (dired-isearch-filenames 'dwim))
+
+;; ispell - interface to spell checkers
+(use-package ispell
+  :custom
+  (ispell-program-name "hunspell")
+  (ispell-dictionary "american"))
+
+;; man - browse UNIX manual pages
+(use-package man
+  :custom
+  ;; allows to use M-n and M-p to switch between manpages in different
+  ;; sections
+  (Man-switches "-a"))
+
 ;; recentf - enable "Open Recent" menu for recent files
 (use-package recentf
   :config
   (add-to-list 'recentf-exclude no-littering-var-directory)
   (add-to-list 'recentf-exclude no-littering-etc-directory)
+  ;; auto-save list of recent files every so often
+  (run-at-time t (* 15 60)
+	       (lambda ()
+	         (let ((inhibit-message t))
+		   (recentf-save-list))))
   (recentf-mode))
 
 ;; tab-bar - faces customized to match Nova theme
@@ -334,7 +356,11 @@
   :bind (("H-h" . windmove-left)
          ("H-j" . windmove-down)
          ("H-k" . windmove-up)
-         ("H-l" . windmove-right)))
+         ("H-l" . windmove-right)
+         ("H-H" . windmove-swap-states-left)
+         ("H-J" . windmove-swap-states-down)
+         ("H-K" . windmove-swap-states-up)
+         ("H-L" . windmove-swap-states-right)))
 
 ;; winner - a global minor mode that records the changes in the window
 ;; configuration, so that you can undo them
@@ -360,7 +386,7 @@
 ;; ace-window - Quickly switch windows in Emacs
 ;; https://github.com/abo-abo/ace-window/
 (use-package ace-window
-  :bind ("C-x o" . ace-window)
+  :bind ("H-'" . ace-window)
   :custom
   (aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l))
   :custom-face
@@ -391,15 +417,11 @@
 (use-package consult
   ;; TODO: consult-yank doesn't work first time in Windows 10
   ;; Should use interprogram-paste-function -> current-kill
-  :bind (("C-x b" . consult-buffer)
+  :bind (("C-h a" . consult-apropos)
+         ("C-x b" . consult-buffer)
          ("C-x r b" . consult-bookmark)
          ;;("C-y" . consult-yank)
          ("M-y" . consult-yank-pop)))
-
-;; consult-selectrum - Selectrum integration for Consult
-;; https://github.com/minad/consult
-(use-package consult-selectrum
-  :after selectrum)
 
 ;; ctrlf - Emacs finally learns how to ctrl+F
 ;; https://github.com/raxod502/ctrlf
@@ -441,12 +463,6 @@
   ;; enabled right away. Note that this forces loading the package.
   :init
   (marginalia-mode))
-
-;; Russian holidays for Emacs builtin calendar
-;; https://github.com/grafov/russian-holidays
-(use-package russian-holidays
-  :config
-  (setq holiday-other-holidays russian-holidays))
 
 ;; selectrum - Easily select item from list
 ;; https://github.com/raxod502/selectrum
@@ -490,8 +506,8 @@
   ("H-o a" . org-agenda)
   ("H-o c" . org-capture)
   ("H-o l" . org-store-link)
-  :hook
-  (org-mode . (lambda () (electric-indent-local-mode -1)))
+  ;;:hook
+  ;;(org-mode . (lambda () (electric-indent-local-mode -1)))
   :custom
   (org-directory "~/essential/orgmode/")
   (org-default-notes-file (concat org-directory "org-capture.org"))
@@ -510,6 +526,19 @@ Director: %^{Director}
 IMDB URL: %^{IMDB URL}%?")))
   (org-agenda-include-diary t)
   (org-special-ctrl-a/e t))
+
+;; org-roam - Roam Research replica with Org-mode
+;; https://github.com/org-roam/org-roam/
+;; https://www.orgroam.com/
+(use-package org-roam
+  :blackout
+  :bind
+  (("H-o r f" . org-roam-find-file)
+   ("H-o r i" . org-roam-insert))
+  :hook
+  (after-init . org-roam-mode)
+  :custom
+  (org-roam-directory "~/essential/orgroam/"))
 
 ;; typo - Emacs mode for typographical editing
 ;; https://github.com/jorgenschaefer/typoel
@@ -535,6 +564,7 @@ IMDB URL: %^{IMDB URL}%?")))
 ;; elfeed-org - Configure elfeed with one or more org-mode files
 ;; https://github.com/remyhonig/elfeed-org/
 (use-package elfeed-org
+  :after org
   :custom
   (rmh-elfeed-org-files (list (concat org-directory "elfeed.org")))
   :config
@@ -569,7 +599,7 @@ IMDB URL: %^{IMDB URL}%?")))
 
 ;; flycheck - On the fly syntax checking for GNU Emacs
 ;; https://github.com/flycheck/flycheck
-;; http://www.flycheck.org
+;; https://www.flycheck.org
 (use-package flycheck
   :bind (:map flycheck-mode-map
               ("H-f [" . flycheck-previous-error)
@@ -687,7 +717,7 @@ IMDB URL: %^{IMDB URL}%?")))
 ;; NOTE: currently doesn't work in MS Windows
 ;; See https://github.com/zealdocs/zeal/issues/1113
 (use-package zeal-at-point
-  :bind ("\C-cd" . zeal-at-point))
+  :bind ("C-c d" . zeal-at-point))
 
 ;; * Packages: Programming (Arch Linux) *
 
