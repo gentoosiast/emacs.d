@@ -244,6 +244,17 @@
 
 ;; save the state of Emacs from one session to another
 (desktop-save-mode 1)
+;; Solves https://github.com/org-roam/org-roam/issues/1196
+;; See comment https://github.com/org-roam/org-roam/issues/1196#issuecomment-713197545
+(with-eval-after-load 'desktop
+  (defun my/org-roam-desktop-restore (buffer-locals)
+    "Don't call org-roam-mode multiple times."
+    (unless (bound-and-true-p org-roam-mode)
+      (org-roam-mode))
+    t)
+  
+  (add-to-list 'desktop-minor-mode-handlers
+               '(org-roam-mode . my/org-roam-desktop-restore)))
 
 ;; save minibuffer history from one session to another
 (savehist-mode 1)
@@ -309,7 +320,6 @@
 (use-package dired-aux
   :straight nil
   :custom
-  ;; dired-isearch-filenames doesn't work with 'ctrlf' package
   (dired-isearch-filenames 'dwim))
 
 ;; ispell - interface to spell checkers
@@ -415,7 +425,7 @@
 ;; consult - Consulting completing-read
 ;; https://github.com/minad/consult
 (use-package consult
-  ;; TODO: consult-yank doesn't work first time in Windows 10
+  ;; TODO: consult-yank doesn't support pasting from clipboard
   ;; Should use interprogram-paste-function -> current-kill
   :bind (("C-h a" . consult-apropos)
          ("C-x b" . consult-buffer)
@@ -426,6 +436,8 @@
 ;; ctrlf - Emacs finally learns how to ctrl+F
 ;; https://github.com/raxod502/ctrlf
 (use-package ctrlf
+  ;; dired-isearch-filenames 'dwim doesn't work with 'ctrlf' package
+  :hook (dired-mode . (lambda () (ctrlf-local-mode -1)))
   :config
   (ctrlf-mode))
 
@@ -510,6 +522,7 @@
   ;;(org-mode . (lambda () (electric-indent-local-mode -1)))
   :custom
   (org-directory "~/essential/orgmode/")
+  (org-agenda-files (list (concat org-directory "tasks.org")))
   (org-default-notes-file (concat org-directory "org-capture.org"))
   (org-capture-templates
    '(("t" "TODO" entry (file+headline "todo.org" "Tasks")
@@ -535,10 +548,11 @@ IMDB URL: %^{IMDB URL}%?")))
   :bind
   (("H-o r f" . org-roam-find-file)
    ("H-o r i" . org-roam-insert))
-  :hook
-  (after-init . org-roam-mode)
   :custom
-  (org-roam-directory "~/essential/orgroam/"))
+  (org-roam-directory "~/essential/orgroam/")
+  (org-roam-list-files-commands '(rg find))
+  :config
+  (org-roam-mode))
 
 ;; typo - Emacs mode for typographical editing
 ;; https://github.com/jorgenschaefer/typoel
