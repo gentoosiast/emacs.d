@@ -138,6 +138,9 @@
 ;; UTF-8 language environment
 (set-language-environment "UTF-8")
 
+;; Use Unix LF life endings for all newly created files
+(prefer-coding-system 'utf-8-unix)
+
 ;; use xsel or wl-copy/wl-paste to copy/paste to and from clipboard in
 ;; Emacs running in terminal emulator under X11 or Wayland
 (unless (display-graphic-p)
@@ -259,11 +262,11 @@
 ;; save minibuffer history from one session to another
 (savehist-mode 1)
 
-;; show line numbers in all programming language modes
-(add-hook 'prog-mode-hook 'display-line-numbers-mode)
-
 ;; only use auto-fill inside comments
 (setq comment-auto-fill-only-comments t)
+
+;; show line numbers in all programming language modes
+(add-hook 'prog-mode-hook 'display-line-numbers-mode)
 
 ;; automatically wrap long lines in comments
 (add-hook 'prog-mode-hook 'auto-fill-mode)
@@ -538,6 +541,7 @@ Genre: %^{Genre|Drama|Crime|Comedy|Sci-Fi|Horror|Thriller|Documentary|Animation}
 Director: %^{Director}
 IMDB URL: %^{IMDB URL}%?")))
   (org-agenda-include-diary t)
+  (org-log-into-drawer "LOGBOOK")
   (org-special-ctrl-a/e t))
 
 ;; org-roam - Roam Research replica with Org-mode
@@ -599,10 +603,9 @@ IMDB URL: %^{IMDB URL}%?")))
 ;; configuration
 ;; https://github.com/jacktasia/dumb-jump
 (use-package dumb-jump
-  :bind (("C-c [" . dumb-jump-back)
-         ("C-c ]" . dumb-jump-go))
-  :config
-  (setq dumb-jump-prefer-searcher 'rg))
+  :hook (xref-backend-functions . dumb-jump-xref-activate)
+  :custom
+  (dumb-jump-prefer-searcher 'rg))
 
 ;; editorconfig - EditorConfig plugin for emacs
 ;; https://github.com/editorconfig/editorconfig-emacs
